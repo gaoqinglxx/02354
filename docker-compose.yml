@@ -18,26 +18,44 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: user-mgmt-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     container_name: user-mgmt-backend
     ports:
-      - "8080:8080"
+      - "18080:8080"
     environment:
       MYSQL_HOST: mysql
       MYSQL_USER: root
       MYSQL_PASSWORD: root123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
     build: ./frontend-user
     container_name: user-mgmt-frontend
     ports:
-      - "8081:80"
+      - "18081:80"
     depends_on:
       - backend
 
 volumes:
   mysql_data:
+  redis_data:

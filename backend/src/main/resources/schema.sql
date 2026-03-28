@@ -13,6 +13,7 @@ CREATE TABLE sys_user (
     age INT DEFAULT NULL COMMENT '年龄',
     profession VARCHAR(50) DEFAULT NULL COMMENT '职业',
     address VARCHAR(200) DEFAULT NULL COMMENT '住址',
+    version INT DEFAULT 0 COMMENT '乐观锁版本号',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_username (username)
