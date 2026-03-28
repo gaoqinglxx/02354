@@ -15,6 +15,9 @@ public class User {
     private Integer age;
     private String profession;
     private String address;
+    @Version
+    @TableField(fill = FieldFill.INSERT)
+    private Integer version;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.INSERT_UPDATE)
