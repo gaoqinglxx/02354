@@ -8,6 +8,7 @@ import com.usermgmt.entity.User;
 import com.usermgmt.mapper.UserMapper;
 import com.usermgmt.util.JwtUtil;
 import com.usermgmt.util.PasswordUtil;
+import com.usermgmt.util.RedisLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,29 +23,41 @@ public class AuthService {
 
     private final UserMapper userMapper;
     private final JwtUtil jwtUtil;
+    private final RedisLock redisLock;
 
     @Transactional
     public void register(RegisterRequest req) {
-        // 检查用户名是否已存在
-        Long count = userMapper.selectCount(
-                new LambdaQueryWrapper<User>().eq(User::getUsername, req.getUsername())
-        );
-        if (count > 0) {
-            throw new BusinessException("用户名已存在");
+        String lockKey = "user:register:" + req.getUsername();
+        // 尝试获取分布式锁，等待3秒，锁过期时间10秒
+        if (!redisLock.tryLock(lockKey, 3, 10)) {
+            throw new BusinessException("系统繁忙，请稍后重试");
         }
 
-        User user = new User();
-        user.setUsername(req.getUsername());
-        user.setPassword(PasswordUtil.encode(req.getPassword()));
-        user.setGender(req.getGender() != null ? req.getGender() : 1);
-        user.setAge(req.getAge());
-        user.setProfession(req.getProfession());
-        user.setAddress(req.getAddress());
-        user.setCreateTime(LocalDateTime.now());
-        user.setUpdateTime(LocalDateTime.now());
+        try {
+            // 检查用户名是否已存在
+            Long count = userMapper.selectCount(
+                    new LambdaQueryWrapper<User>().eq(User::getUsername, req.getUsername())
+            );
+            if (count > 0) {
+                throw new BusinessException("用户名已存在");
+            }
 
-        userMapper.insert(user);
-        log.info("用户注册成功: {}", req.getUsername());
+            User user = new User();
+            user.setUsername(req.getUsername());
+            user.setPassword(PasswordUtil.encode(req.getPassword()));
+            user.setGender(req.getGender() != null ? req.getGender() : 1);
+            user.setAge(req.getAge());
+            user.setProfession(req.getProfession());
+            user.setAddress(req.getAddress());
+            user.setCreateTime(LocalDateTime.now());
+            user.setUpdateTime(LocalDateTime.now());
+
+            userMapper.insert(user);
+            log.info("用户注册成功: {}", req.getUsername());
+        } finally {
+            // 释放锁
+            redisLock.unlock(lockKey);
+        }
     }
 
     public String login(LoginRequest req) {
